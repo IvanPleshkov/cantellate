@@ -41,6 +41,10 @@ pub struct Args {
 }
 
 fn main() {
+    env_logger::builder()
+        .filter_level(log::LevelFilter::Info)
+        .init();
+
     // parse command line arguments
     let args = Args::parse();
 
@@ -89,7 +93,7 @@ fn run<N>(args: &Args)
 where
     N: Float + ToPrimitive + FromPrimitive + Default,
 {
-    println!("Input mesh: {}, output {}", args.input, args.output);
+    log::info!("Input mesh: {}, output {}", args.input, args.output);
     // load the input mesh
     let mesh = Mesh::<N>::load_obj(&args.input).unwrap();
 
@@ -101,9 +105,9 @@ where
             N::from_f32(args.factor).unwrap(),
             N::from_f32(args.epsilon).unwrap(),
         );
-        println!(
+        log::info!(
             "Iteration {} took {:?}; vertices count: {}",
-            iteration,
+            iteration + 1,
             timer.elapsed(),
             result.vertices.len()
         );
