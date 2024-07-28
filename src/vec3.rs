@@ -25,15 +25,15 @@ where
     }
 }
 
-impl<N> Into<[f32; 3]> for Vec3<N>
+impl<N> From<Vec3<N>> for [f32; 3]
 where
     N: Float + ToPrimitive + FromPrimitive + Default,
 {
-    fn into(self) -> [f32; 3] {
+    fn from(v: Vec3<N>) -> Self {
         [
-            N::to_f32(&self.x).unwrap_or_default(),
-            N::to_f32(&self.y).unwrap_or_default(),
-            N::to_f32(&self.z).unwrap_or_default(),
+            N::to_f32(&v.x).unwrap_or_default(),
+            N::to_f32(&v.y).unwrap_or_default(),
+            N::to_f32(&v.z).unwrap_or_default(),
         ]
     }
 }

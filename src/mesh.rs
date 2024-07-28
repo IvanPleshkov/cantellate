@@ -32,10 +32,8 @@ where
             .data
             .objects
             .iter()
-            .map(|object| object.groups.iter())
-            .flatten()
-            .map(|group| group.polys.iter())
-            .flatten()
+            .flat_map(|object| object.groups.iter())
+            .flat_map(|group| group.polys.iter())
             .map(|poly| poly.0.iter().map(|index_tuple| index_tuple.0).collect())
             .collect();
 

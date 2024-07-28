@@ -60,9 +60,15 @@ fn main() {
         // if input is a directory, iterate over all files in the directory
         for file in input_path.read_dir().unwrap() {
             let file = file.unwrap();
-            if file.path().is_file() && file.path().extension().and_then(|e| e.to_str()) == Some("obj") {
+            if file.path().is_file()
+                && file.path().extension().and_then(|e| e.to_str()) == Some("obj")
+            {
                 let input = file.path().to_str().unwrap().to_string();
-                let output = output_dir.join(file.file_name()).to_str().unwrap().to_string();
+                let output = output_dir
+                    .join(file.file_name())
+                    .to_str()
+                    .unwrap()
+                    .to_string();
                 let args = Args {
                     input,
                     output,
@@ -76,7 +82,6 @@ fn main() {
             }
         }
     }
-
 }
 
 // Run the demo.
@@ -106,11 +111,11 @@ where
     });
 
     let output_path: PathBuf = args.output.clone().into();
-    output_path.parent().map(|output_dir| {
+    if let Some(output_dir) = output_path.parent() {
         if !output_dir.exists() {
             std::fs::create_dir_all(output_dir).unwrap();
         }
-    });
+    }
 
     // save the output mesh
     output_mesh.save_obj(&args.output).unwrap();

@@ -18,7 +18,7 @@ where
     let faces_normal = get_faces_normal(mesh, epsilon);
 
     let mut cantellated_vertices: Vec<_> = (0..mesh.vertices.len())
-        .map(|vertex_index| CantellatedVertex::new(vertex_index))
+        .map(CantellatedVertex::new)
         .collect();
 
     // fill the map from the vertex to their faces
@@ -57,7 +57,7 @@ fn cantellate_vertices<N>(
     cantellated_vertices
         .iter_mut()
         .for_each(|cantellated_vertex| {
-            cantellated_vertex.cantellate(&faces_normal, factor, epsilon, mesh, result_mesh);
+            cantellated_vertex.cantellate(faces_normal, factor, epsilon, mesh, result_mesh);
         });
 }
 
@@ -100,10 +100,7 @@ fn cantellate_edges<N>(
         for i in 0..face.len() {
             let v1 = face[i];
             let v2 = face[(i + 1) % face.len()];
-            edges
-                .entry((v1, v2))
-                .or_insert_with(SmallVec::new)
-                .push(face_index);
+            edges.entry((v1, v2)).or_default().push(face_index);
         }
     }
 
@@ -223,6 +220,7 @@ fn find_face_normal<N>(points: Vec<Vec3<N>>, epsilon: N) -> Option<Vec3<N>>
 where
     N: Float + ToPrimitive + FromPrimitive + Default,
 {
+    #![allow(clippy::comparison_chain)]
     if points.len() < 3 {
         // not enough vertices to form a face
         return None;
