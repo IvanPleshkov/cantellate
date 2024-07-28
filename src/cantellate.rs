@@ -1,9 +1,8 @@
-use std::collections::HashMap;
-
 use crate::{
     mesh::{Mesh, SmallVec},
     vec3::Vec3,
 };
+use ahash::AHashMap;
 use num_traits::{float::Float, FromPrimitive, ToPrimitive};
 use parking_lot::Mutex;
 use rayon::iter::{IndexedParallelIterator, IntoParallelIterator, IntoParallelRefIterator, ParallelIterator};
@@ -113,7 +112,8 @@ fn cantellate_edges<N>(
 {
     // First pass. Store all edges in forward direction.
     // Do it in a single thread mode because we need to store all edges in a single collection.
-    let mut edges: HashMap<(usize, usize), SmallVec<usize>> = HashMap::new();
+    let timer = std::time::Instant::now();
+    let mut edges: AHashMap<(usize, usize), SmallVec<usize>> = AHashMap::new();
     for (face_index, face) in mesh.faces.iter().enumerate() {
         for i in 0..face.len() {
             let v1 = face[i];
@@ -124,6 +124,7 @@ fn cantellate_edges<N>(
                 .push(face_index);
         }
     }
+    println!("Store edges took {:?}", timer.elapsed());
 
     // Second pass. Cantellate the edges in parallel.
     mesh.faces.par_iter().enumerate().for_each(|(face_index, face)| {
