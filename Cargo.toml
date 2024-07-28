@@ -1,0 +1,10 @@
+[package]
+name = "cantellation"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+obj = "0.10.2"
+clap = { version = "4.5.1", features = ["derive"] }
+num-traits = { version = "0.2.19", features = ["std"] }
+smallvec = "1.13.2"
