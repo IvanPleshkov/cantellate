@@ -1,9 +1,8 @@
-use std::collections::HashMap;
-
 use crate::{
     mesh::{Mesh, SmallVec},
     vec3::Vec3,
 };
+use ahash::AHashMap;
 use num_traits::{float::Float, FromPrimitive, ToPrimitive};
 
 /// Cantellate the mesh.
@@ -96,7 +95,7 @@ fn cantellate_edges<N>(
     N: Float + ToPrimitive + FromPrimitive + Default,
 {
     // First pass. Store all edges in forward direction.
-    let mut edges: HashMap<(usize, usize), SmallVec<usize>> = HashMap::new();
+    let mut edges: AHashMap<(usize, usize), SmallVec<usize>> = AHashMap::new();
     for (face_index, face) in mesh.faces.iter().enumerate() {
         for i in 0..face.len() {
             let v1 = face[i];
