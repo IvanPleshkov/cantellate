@@ -5,30 +5,41 @@ use crate::{
     vec3::Vec3,
 };
 use num_traits::{float::Float, FromPrimitive, ToPrimitive};
+use parking_lot::Mutex;
+use rayon::iter::{IndexedParallelIterator, IntoParallelIterator, IntoParallelRefIterator, ParallelIterator};
 
 /// Cantellate the mesh.
 /// The cantellation factor is an absolute distance from the original face to the cantellated face.
 /// The epsilon is a small value to compare floating point numbers.
-pub fn cantellate<N>(mesh: &Mesh<N>, factor: N, epsilon: N) -> Mesh<N>
+pub fn cantellate<N>(
+    mesh: &Mesh<N>,
+    factor: N,
+    epsilon: N,
+) -> Mesh<N>
 where
-    N: Float + ToPrimitive + FromPrimitive + Default,
+    N: Float + ToPrimitive + FromPrimitive + Default + Send + Sync,
 {
-    let mut result_mesh = Mesh::default();
+    let mut result_mesh = Mutex::new(Mesh::default());
 
     // calculate the normal of each face.
     let faces_normal = get_faces_normal(mesh, epsilon);
 
+    let timer = std::time::Instant::now();
     let mut cantellated_vertices: Vec<_> = (0..mesh.vertices.len())
         .map(|vertex_index| CantellatedVertex::new(vertex_index))
         .collect();
+    println!("Faces normal calculation took {:?}", timer.elapsed());
 
     // fill the map from the vertex to their faces
+    let timer = std::time::Instant::now();
     fill_vertices_fo_faces(mesh, &mut cantellated_vertices);
+    println!("Fill vertices for faces took {:?}", timer.elapsed());
 
     // cantellate the vertices
     // this operation expands all vertices by their faces
     // all vertices of result mesh are create here, expanded edges and faces are created later
     // using the information about the cantellated vertices
+    let timer = std::time::Instant::now();
     cantellate_vertices(
         mesh,
         &mut result_mesh,
@@ -37,26 +48,31 @@ where
         factor,
         epsilon,
     );
+    println!("Cantellate vertices took {:?}", timer.elapsed());
 
+    let timer = std::time::Instant::now();
     cantellate_edges(mesh, &mut result_mesh, &cantellated_vertices);
+    println!("Cantellate edges took {:?}", timer.elapsed());
 
+    let timer = std::time::Instant::now();
     cantellate_faces(mesh, &mut result_mesh, &cantellated_vertices);
+    println!("Cantellate faces took {:?}", timer.elapsed());
 
-    result_mesh
+    result_mesh.into_inner()
 }
 
 fn cantellate_vertices<N>(
     mesh: &Mesh<N>,
-    result_mesh: &mut Mesh<N>,
+    result_mesh: &Mutex<Mesh<N>>,
     cantellated_vertices: &mut [CantellatedVertex],
     faces_normal: &[Option<Vec3<N>>],
     factor: N,
     epsilon: N,
 ) where
-    N: Float + ToPrimitive + FromPrimitive + Default,
+    N: Float + ToPrimitive + FromPrimitive + Default + Send + Sync,
 {
     cantellated_vertices
-        .iter_mut()
+        .into_par_iter()
         .for_each(|cantellated_vertex| {
             cantellated_vertex.cantellate(&faces_normal, factor, epsilon, mesh, result_mesh);
         });
@@ -64,12 +80,12 @@ fn cantellate_vertices<N>(
 
 fn cantellate_faces<N>(
     mesh: &Mesh<N>,
-    result_mesh: &mut Mesh<N>,
+    result_mesh: &Mutex<Mesh<N>>,
     cantellated_vertices: &[CantellatedVertex],
 ) where
-    N: Float + ToPrimitive + FromPrimitive + Default,
+    N: Float + ToPrimitive + FromPrimitive + Default + Send + Sync,
 {
-    for (face_index, face) in mesh.faces.iter().enumerate() {
+    mesh.faces.par_iter().enumerate().for_each(|(face_index, face)| {
         let mut cantellated_face = SmallVec::<usize>::new();
         for &vertex_index in face {
             let new_vertex_index =
@@ -83,19 +99,20 @@ fn cantellate_faces<N>(
             }
         }
         if cantellated_face.len() > 2 {
-            result_mesh.faces.push(cantellated_face);
+            result_mesh.lock().faces.push(cantellated_face);
         }
-    }
+    });
 }
 
 fn cantellate_edges<N>(
     mesh: &Mesh<N>,
-    result_mesh: &mut Mesh<N>,
+    result_mesh: &Mutex<Mesh<N>>,
     cantellated_vertices: &[CantellatedVertex],
 ) where
-    N: Float + ToPrimitive + FromPrimitive + Default,
+    N: Float + ToPrimitive + FromPrimitive + Default + Send + Sync,
 {
     // First pass. Store all edges in forward direction.
+    // Do it in a single thread mode because we need to store all edges in a single collection.
     let mut edges: HashMap<(usize, usize), SmallVec<usize>> = HashMap::new();
     for (face_index, face) in mesh.faces.iter().enumerate() {
         for i in 0..face.len() {
@@ -108,10 +125,10 @@ fn cantellate_edges<N>(
         }
     }
 
-    // Second pass. Cantellate the edges.
-    for (face_index, face) in mesh.faces.iter().enumerate() {
+    // Second pass. Cantellate the edges in parallel.
+    mesh.faces.par_iter().enumerate().for_each(|(face_index, face)| {
         if !is_face_valid(face) {
-            continue;
+            return;
         }
 
         for i in 0..face.len() {
@@ -136,11 +153,11 @@ fn cantellate_edges<N>(
                 );
 
                 if let Some(edge_face) = edge_face {
-                    result_mesh.faces.push(edge_face);
+                    result_mesh.lock().faces.push(edge_face);
                 }
             }
         }
-    }
+    });
 }
 
 fn get_cantellated_edge_face(
@@ -204,11 +221,15 @@ where
 }
 
 /// Calculate the normal of each face.
-fn get_faces_normal<N>(mesh: &Mesh<N>, epsilon: N) -> Vec<Option<Vec3<N>>>
+fn get_faces_normal<N>(
+    mesh: &Mesh<N>,
+    epsilon: N,
+) -> Vec<Option<Vec3<N>>>
 where
-    N: Float + ToPrimitive + FromPrimitive + Default,
+    N: Float + ToPrimitive + FromPrimitive + Default + Send + Sync,
 {
     (0..mesh.faces.len())
+        .into_par_iter()
         .map(|face_index| {
             let face = &mesh.faces[face_index];
             let points: Vec<_> = face
@@ -284,7 +305,7 @@ impl CantellatedVertex {
         factor: N,
         epsilon: N,
         mesh: &Mesh<N>,
-        result_mesh: &mut Mesh<N>,
+        result_mesh: &Mutex<Mesh<N>>,
     ) where
         N: Float + ToPrimitive + FromPrimitive + Default,
     {
@@ -292,7 +313,7 @@ impl CantellatedVertex {
 
         // If the vertex is not part of any face, then it is a single point.
         if self.faces.is_empty() {
-            result_mesh.vertices.push(vertex);
+            result_mesh.lock().vertices.push(vertex);
             return;
         }
 
@@ -310,7 +331,7 @@ impl CantellatedVertex {
             // it is needed to avoid duplicate vertices and avoid zero-length edges
             let same_neighbour = if let Some(&prev_index) = self.cantellated.last() {
                 // check with the previous vertex as a constructed neightbour
-                let prev_vertex = result_mesh.vertices[prev_index];
+                let prev_vertex = result_mesh.lock().vertices[prev_index];
                 let diff = cantellated_vertex - prev_vertex;
                 let same_neighbour = if diff.length() < epsilon {
                     Some(prev_index)
@@ -321,7 +342,7 @@ impl CantellatedVertex {
                 // special case. if vertex is the last, compare also with the first
                 if same_neighbour.is_none() && self.cantellated.len() + 1 == self.faces.len() {
                     let first_index = self.cantellated[0];
-                    let first_vertex = result_mesh.vertices[first_index];
+                    let first_vertex = result_mesh.lock().vertices[first_index];
                     let diff = cantellated_vertex - first_vertex;
                     if diff.length() < epsilon {
                         Some(first_index)
@@ -342,6 +363,7 @@ impl CantellatedVertex {
                 self.cantellated.push(same_neighbour);
             } else {
                 // create a new vertex in the result mesh
+                let mut result_mesh = result_mesh.lock();
                 let new_vertex_index = result_mesh.vertices.len();
                 self.cantellated.push(new_vertex_index);
                 face.push(new_vertex_index);
@@ -351,7 +373,7 @@ impl CantellatedVertex {
 
         // non-watertight vertex has no cantellated face
         if is_watertight && face.len() > 2 {
-            result_mesh.faces.push(face);
+            result_mesh.lock().faces.push(face);
         }
     }
 

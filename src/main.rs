@@ -38,11 +38,17 @@ pub struct Args {
     /// Use double precision.
     #[clap(short, long, default_value_t = true)]
     double: bool,
+
+    /// Number of threads to use.
+    #[clap(short, long)]
+    thread: Option<usize>,
 }
 
 fn main() {
     // parse command line arguments
     let args = Args::parse();
+
+    rayon::ThreadPoolBuilder::new().num_threads(args.thread.unwrap_or_default()).build_global().unwrap();
 
     let input_path: PathBuf = args.input.clone().into();
     if input_path.is_file() {
@@ -76,13 +82,12 @@ fn main() {
             }
         }
     }
-
 }
 
 // Run the demo.
 fn run<N>(args: &Args)
 where
-    N: Float + ToPrimitive + FromPrimitive + Default,
+    N: Float + ToPrimitive + FromPrimitive + Default + Send + Sync,
 {
     println!("Input mesh: {}, output {}", args.input, args.output);
     // load the input mesh
