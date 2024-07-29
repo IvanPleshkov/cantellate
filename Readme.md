@@ -30,3 +30,28 @@ Two iterations:
 ```bash
 cargo run --release -- -i assets/cube.obj -o results/cube_cantellated.obj -c 2
 ```
+
+# Assets
+There are some example meshes in the `assets` directory. Example contains:
+- Simple cube. Basic example of cantellation
+- Triangulated cube. All faces are triangles
+- Pyramid and torus
+- Generic 3D models: cessna and suzanne
+- Single plane
+- Plane mesh to test empty gaps
+- Mesh contains the edge with 3 connected faces
+- Single point mesh
+- Mesh with connected faces but with opposite normals
+- Mesh with face duplications (open problem, see below)
+
+All assests are in the `.obj` format. Cantellated meshes are saved in the `results` directory.
+
+# Open problems
+This solution has open problems:
+- Many iterations of cantellation for the cube produces non-convex mesh. The algorithm should be improved to handle this case. The problem is caused by the fact that the new face on iteration 2 produces a face which is not convex. The proper solution is to split the face into convex parts by polygon triangulation. It will produce more faces but the mesh will be convex.
+- Mesh with face duplications (two faces that have the same vertex indices). The algorithm does not handle the case when the face is duplicated. The algorithm should be improved to handle this case. Currently it just skips some faces.
+
+# Future improvements
+There are some intresting subjects to improve:
+- Add support for other file formats
+- Better result for non-convex meshes. By definition of cantellation, the faces are pushed outwards. For non-convex meshes, new faces intersect with each other. It's interesting to handle this case and do mesh intersection. Or at least reduce size of result faces to avoid self intersections for small factor.
