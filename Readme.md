@@ -31,6 +31,11 @@ Two iterations:
 cargo run --release -- -i assets/cube.obj -o results/cube_cantellated.obj -c 2
 ```
 
+Also, docker image is available:
+```bash
+docker run --rm --volume "${PWD}:/data" pleshkov:cantellation ./cantellation -i data/assets/cube.obj -o data/results/cube_cantellated.obj
+```
+
 # Assets
 There are some example meshes in the `assets` directory. Example contains:
 - Simple cube. Basic example of cantellation
@@ -55,3 +60,4 @@ This solution has open problems:
 There are some intresting subjects to improve:
 - Add support for other file formats
 - Better result for non-convex meshes. By definition of cantellation, the faces are pushed outwards. For non-convex meshes, new faces intersect with each other. It's interesting to handle this case and do mesh intersection. Or at least reduce size of result faces to avoid self intersections for small factor.
+- Parallel processing. The algorithm is simple and can be parallelized. There is a branch of experiment with `rayon` crate but it's not finished yet (cause it does not show acceptable performance result).
