@@ -33,7 +33,7 @@ cargo run --release -- -i assets/cube.obj -o results/cube_cantellated.obj -c 2
 
 Also, docker image is available:
 ```bash
-docker run --rm --volume "${PWD}:/data" pleshkov:cantellation ./cantellation -i data/assets/cube.obj -o data/results/cube_cantellated.obj
+docker run --rm --volume "${PWD}:/data" pleshkov/cantellation ./cantellation -i data/assets/cube.obj -o data/results/cube_cantellated.obj
 ```
 
 # Assets
